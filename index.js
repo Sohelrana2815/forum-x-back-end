@@ -17,68 +17,6 @@ app.use(
 
 // Image Upload Endpoint
 
-app.post("/upload-image", async (req, res) => {
-  try {
-    // Validate file existence
-
-    if (!req.files?.image) {
-      return res
-        .status(400)
-        .json({ success: false, error: "No image uploaded" });
-    }
-
-    const imageFile = req.files.image;
-    console.log("Received image file:", imageFile.name); // log file received
-
-    // Validate file type
-
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-
-    if (!allowedTypes.includes(imageFile.mimetype)) {
-      return res.status(415).json({ error: "Unsupported file type" });
-    }
-
-    // Validate file size (5MB max)
-
-    const maxSize = 5 * 1024 * 1024;
-
-    if (imageFile.size > maxSize) {
-      return res.status(413).json({ error: "File exceeds 5MB limit" });
-    }
-
-    // Convert to base64 for ImgBB
-
-    const base64Image = imageFile.data.toString("base64");
-
-    // Upload to ImgBB
-
-    const imgBBResponse = await axios.post("https://api.imgbb.com/1/upload", {
-      image: base64Image,
-      key: process.env.IMG_BB_API_KEY,
-    });
-
-    if (!imgBBResponse.data.success) {
-      throw new Error("Image upload failed");
-    }
-
-    console.log(
-      "Image upload to ImgBB successfully! URL:",
-      imgBBResponse.data.data.url
-    ); // ImgBB upload success
-
-    res.json({
-      success: true,
-      url: imgBBResponse.data.data.url,
-    });
-  } catch (error) {
-    console.error("Image upload error:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
-});
-
 import { MongoClient, ServerApiVersion } from "mongodb";
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5q2fm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -93,16 +31,118 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
-    // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    const usersCollection = client.db("FORUM_X_DB").collection("users");
+
+    // Post API For Upload images
+
+    app.post("/upload-image", async (req, res) => {
+      try {
+        if (!req.files?.image) {
+          return res.status(400).json({ error: "No image uploaded" });
+        }
+
+        const imageFile = req.files.image;
+        console.log(imageFile);
+        console.log("Received file details:", {
+          name: imageFile.name,
+          type: imageFile.mimetype,
+          size: imageFile.size,
+        });
+
+        // Validate file type
+        const allowedTypes = [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+        ];
+        if (!allowedTypes.includes(imageFile.mimetype)) {
+          return res.status(415).json({ error: "Unsupported file type" });
+        }
+
+        // Validate file size
+        const maxSize = 5 * 1024 * 1024;
+        if (imageFile.size > maxSize) {
+          return res.status(413).json({ error: "File exceeds 5MB limit" });
+        }
+
+        // Convert to base64
+        // const base64Image = imageFile.data.toString("base64");
+        const base64Image = imageFile.data.toString("base64");
+        console.log("Base64 prefix:", base64Image.substring(0, 20)); // Verify encoding
+
+        // Upload to ImgBB
+        const params = new URLSearchParams();
+        params.append("image", base64Image);
+
+        const imgBBResponse = await axios.post(
+          `https://api.imgbb.com/1/upload?key=${process.env.IMG_BB_API_KEY}`,
+          params,
+          {
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+          }
+        );
+
+        console.log("ImgBB response:", imgBBResponse.data);
+
+        if (!imgBBResponse.data.success) {
+          throw new Error(
+            "ImgBB upload failed:" + imgBBResponse.data.error.message
+          );
+        }
+
+        res.json({
+          success: true,
+          url: imgBBResponse.data.data.url,
+        });
+      } catch (error) {
+        console.error("Full error:", error);
+        res.status(500).json({
+          success: false,
+          error: error.message,
+        });
+      }
+    });
+
+    // Post API For Storing users credentials
+
+    app.post("/register-user", async (req, res) => {
+      try {
+        const { name, email, password, photoURL } = req.body;
+
+        // Validate input
+        if (!name || !email || !password || !photoURL) {
+          return res.status(400).json({ error: "All fields are required" });
+        }
+
+        // Check email already exists in database
+
+        const existingUser = await usersCollection.findOne({ email });
+
+        if (existingUser) {
+          return res.status(400).json({ error: "User already exist" });
+        }
+
+        // Insert new user
+
+        const newUser = {
+          name,
+          email,
+          password,
+          photoURL,
+        };
+
+        const result = await usersCollection.insertOne(newUser);
+        res.status(200).send(result);
+      } catch (error) {
+        console.error("Registration error:", error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
   } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+    //
   }
 }
 run().catch(console.dir);
