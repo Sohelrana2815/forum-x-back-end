@@ -1,4 +1,4 @@
-import express from "express";
+import express, { json } from "express";
 import axios from "axios";
 import fileUpload from "express-fileupload";
 import dotenv from "dotenv";
@@ -32,6 +32,19 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const usersCollection = client.db("FORUM_X_DB").collection("users");
+    const postsCollection = client.db("FORUM_X_DB").collection("posts");
+    const tagsCollection = client.db("FORUM_X_DB").collection("tags");
+    // Get all users data
+
+    app.get("/users", async (req, res) => {
+      try {
+        const result = await usersCollection.find().toArray();
+        res.status(200).send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to load users" });
+      }
+    });
 
     // Post API For Upload images
 
@@ -141,8 +154,46 @@ async function run() {
         res.status(500).json({ success: false, error: error.message });
       }
     });
+
+    // Add Post API
+
+    app.post("/add-posts", async (req, res) => {
+      try {
+        const postData = req.body;
+
+        if (!postData) {
+          return res.status(400).json({ message: "Missing Post data." });
+        }
+        const result = await postsCollection.insertOne(postData);
+        res.status(201).send(result);
+      } catch (error) {
+        console.error(error);
+      }
+    });
+
+    // Get all posts
+
+    app.get("/posts", async (req, res) => {
+      try {
+        const result = await postsCollection
+          .find()
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.status(200).send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to load posts" });
+      }
+    });
+
+    // Post tags
+
+    app.post("/tags", async (req, res) => {
+      const tags = req.body;
+      console.log("tags name", tags);
+    });
   } finally {
-    //
+    // bla bal
   }
 }
 run().catch(console.dir);
