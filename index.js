@@ -164,6 +164,7 @@ async function run() {
         if (!postData) {
           return res.status(400).json({ message: "Missing Post data." });
         }
+        console.log("Post Data:", postData);
         const result = await postsCollection.insertOne(postData);
         res.status(201).send(result);
       } catch (error) {
@@ -189,8 +190,37 @@ async function run() {
     // Post tags
 
     app.post("/tags", async (req, res) => {
-      const tags = req.body;
-      console.log("tags name", tags);
+      try {
+        const { tags } = req.body;
+        const createdAt = new Date();
+
+        // Insert tags into the database
+
+        const tagDocuments = tags.map((tag) => ({
+          name: tag,
+          createdAt,
+        }));
+
+        console.log(tagDocuments, tags);
+
+        const result = await tagsCollection.insertMany(tagDocuments);
+        res.status(201).json({ message: "Tags added successfully", result });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to add tags" });
+      }
+    });
+
+    // Get /api/tags
+
+    app.get("/tags", async (req, res) => {
+      try {
+        const tags = await tagsCollection.find().toArray();
+        res.status(200).send(tags);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to load tags" });
+      }
     });
   } finally {
     // bla bal
