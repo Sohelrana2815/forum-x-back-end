@@ -176,11 +176,43 @@ async function run() {
 
     app.get("/posts", async (req, res) => {
       try {
-        const result = await postsCollection
-          .find()
-          .sort({ createdAt: -1 })
-          .toArray();
-        res.status(200).send(result);
+        const { sort = "newest", page = 1 } = req.query;
+        const limit = 5;
+        const skip = (page - 1) * limit;
+        let pipeline = [];
+
+        // Add vote difference calculation
+
+        pipeline.push({
+          $addFields: {
+            voteDifference: { $subtract: ["$upVote", "$downVote"] },
+          },
+        });
+
+        // Sorting logic
+
+        if (sort === "popular") {
+          pipeline.push({ $sort: { voteDifference: -1 } }); // BIG to small
+        } else {
+          pipeline.push({ $sort: { createdAt: -1 } });
+        }
+
+        // Pagination
+
+        pipeline.push({ $skip: skip }, { $limit: limit });
+
+        // Get total count for pagination
+
+        const totalPosts = await postsCollection.countDocuments();
+
+        const posts = await postsCollection.aggregate(pipeline).toArray();
+
+        res.status(200).send({
+          posts,
+          totalPosts,
+          totalPages: Math.ceil(totalPosts / limit),
+          currentPage: parseInt(page),
+        });
       } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Failed to load posts" });
