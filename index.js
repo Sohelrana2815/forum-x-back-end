@@ -17,7 +17,7 @@ app.use(
 
 // Image Upload Endpoint
 
-import { MongoClient, ServerApiVersion } from "mongodb";
+import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.5q2fm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -33,6 +33,7 @@ async function run() {
   try {
     const usersCollection = client.db("FORUM_X_DB").collection("users");
     const postsCollection = client.db("FORUM_X_DB").collection("posts");
+    const commentsCollection = client.db("FORUM_X_DB").collection("comments");
     const tagsCollection = client.db("FORUM_X_DB").collection("tags");
     // Get all users data
 
@@ -219,6 +220,19 @@ async function run() {
       }
     });
 
+    // GET /posts/:id- Get single post
+
+    app.get("/posts/:id", async (req, res) => {
+      try {
+        const id = req.params;
+        const query = { _id: new ObjectId(id) };
+        const post = await postsCollection.findOne(query);
+        res.status(200).send(post);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to fetch post" });
+      }
+    });
+
     // Post tags
 
     app.post("/tags", async (req, res) => {
@@ -240,6 +254,54 @@ async function run() {
       } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Failed to add tags" });
+      }
+    });
+
+    // PUT /posts/:id/upvote-Increment upvote
+
+    app.put("/posts/:id/upvote", async (req, res) => {
+      try {
+        const id = req.params;
+        const filter = { _id: new ObjectId(id) };
+
+        const result = await postsCollection.updateOne(filter, {
+          $inc: { upVote: 1 },
+        });
+        res.status(200).send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to upvote" });
+      }
+    });
+
+    // PUT /posts/:id/downvote- Increment
+
+    app.put("/posts/:id/downvote", async (req, res) => {
+      try {
+        const id = req.params;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = { $inc: { downVote: 1 } };
+
+        const result = await postsCollection.updateOne(filter, updatedDoc);
+
+        res.status(200).send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to downvote" });
+      }
+    });
+
+    // POST /comments- Add new comment
+
+    app.post("/comments", async (req, res) => {
+      try {
+        const newComment = {
+          ...req.body,
+          createdAt: new Date(),
+        };
+        const result = await commentsCollection.insertOne(newComment);
+
+        res.status(201).send(result);
+      } catch (error) {
+        res.status(500).json({ message: "Failed to add comment" });
       }
     });
 
