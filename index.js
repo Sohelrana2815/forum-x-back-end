@@ -305,6 +305,20 @@ async function run() {
       }
     });
 
+    // Get all comments
+
+    app.get("/comments", async (req, res) => {
+      try {
+        const { postId } = req.query; // Get postId from query parameters
+        const query = postId ? { postId } : {};
+        const result = await commentsCollection.find(query).toArray();
+        res.status(200).send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to load comments" });
+      }
+    });
+
     // Get /api/tags
 
     app.get("/tags", async (req, res) => {
