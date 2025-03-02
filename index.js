@@ -3,6 +3,8 @@ import axios from "axios";
 import fileUpload from "express-fileupload";
 import dotenv from "dotenv";
 import cors from "cors";
+import SSLCommerzPayment from "sslcommerz-lts";
+
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +31,11 @@ const client = new MongoClient(uri, {
   },
 });
 
+const store_id = process.env.STORE_ID;
+
+const store_passwd = process.env.STORE_PASSWD;
+const is_live = false; //true for live, false for sandbox
+
 async function run() {
   try {
     const usersCollection = client.db("FORUM_X_DB").collection("users");
@@ -44,6 +51,21 @@ async function run() {
       } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Failed to load users" });
+      }
+    });
+
+    app.get("/users/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+        const user = await usersCollection.findOne({ email });
+        if (!user) {
+          res.status(404).json({ message: "User not found!" });
+        }
+
+        res.status(200).json(user);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to fetch user data" });
       }
     });
 
@@ -139,13 +161,14 @@ async function run() {
           return res.status(400).json({ error: "User already exist" });
         }
 
-        // Insert new user
+        // Insert new user with badge
 
         const newUser = {
           name,
           email,
           password,
           photoURL,
+          badge: "Bronze", // Default bronze
         };
 
         const result = await usersCollection.insertOne(newUser);
