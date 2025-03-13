@@ -59,13 +59,49 @@ async function run() {
         const email = req.params.email;
         const user = await usersCollection.findOne({ email });
         if (!user) {
-          res.status(404).json({ message: "User not found!" });
+          return res.status(404).json({ message: "User not found!" });
         }
-
-        res.status(200).json(user);
+        return res.status(200).send(user);
       } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Failed to fetch user data" });
+        return res.status(500).json({ message: "Failed to fetch user data" });
+      }
+    });
+
+    // Post API For Storing users credentials
+
+    app.post("/signup", async (req, res) => {
+      try {
+        const { name, email, password, photoURL } = req.body;
+
+        // Validate input
+        if (!name || !email || !password || !photoURL) {
+          return res.status(400).json({ error: "All fields are required" });
+        }
+
+        // Check email already exists in database
+
+        const existingUser = await usersCollection.findOne({ email });
+
+        if (existingUser) {
+          return res.status(400).json({ error: "User already exist" });
+        }
+
+        // Insert new user with badge
+
+        const newUser = {
+          name,
+          email,
+          password,
+          photoURL,
+          badge: "Bronze", // Default bronze
+        };
+
+        const result = await usersCollection.insertOne(newUser);
+        return res.status(200).send(result);
+      } catch (error) {
+        console.error("Registration error:", error);
+        return res.status(500).json({ success: false, error: error.message });
       }
     });
 
@@ -139,43 +175,6 @@ async function run() {
           success: false,
           error: error.message,
         });
-      }
-    });
-
-    // Post API For Storing users credentials
-
-    app.post("/register-user", async (req, res) => {
-      try {
-        const { name, email, password, photoURL } = req.body;
-
-        // Validate input
-        if (!name || !email || !password || !photoURL) {
-          return res.status(400).json({ error: "All fields are required" });
-        }
-
-        // Check email already exists in database
-
-        const existingUser = await usersCollection.findOne({ email });
-
-        if (existingUser) {
-          return res.status(400).json({ error: "User already exist" });
-        }
-
-        // Insert new user with badge
-
-        const newUser = {
-          name,
-          email,
-          password,
-          photoURL,
-          badge: "Bronze", // Default bronze
-        };
-
-        const result = await usersCollection.insertOne(newUser);
-        res.status(200).send(result);
-      } catch (error) {
-        console.error("Registration error:", error);
-        res.status(500).json({ success: false, error: error.message });
       }
     });
 
