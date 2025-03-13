@@ -1,9 +1,9 @@
-import express, { json } from "express";
+import express from "express";
 import axios from "axios";
 import fileUpload from "express-fileupload";
 import dotenv from "dotenv";
 import cors from "cors";
-import SSLCommerzPayment from "sslcommerz-lts";
+// import SSLCommerzPayment from "sslcommerz-lts";
 
 dotenv.config();
 const app = express();
@@ -31,10 +31,10 @@ const client = new MongoClient(uri, {
   },
 });
 
-const store_id = process.env.STORE_ID;
+// const store_id = process.env.STORE_ID;
 
-const store_passwd = process.env.STORE_PASSWD;
-const is_live = false; //true for live, false for sandbox
+// const store_passwd = process.env.STORE_PASSWD;
+// const is_live = false; //true for live, false for sandbox
 
 async function run() {
   try {
@@ -253,6 +253,65 @@ async function run() {
         res.status(200).send(post);
       } catch (error) {
         res.status(500).json({ message: "Failed to fetch post" });
+      }
+    });
+
+    // Users email wise data fetching (sort and limit = 3)
+
+    app.get("/posts/user/:email", async (req, res) => {
+      try {
+        const { email } = req.params;
+        const { limit = 3 } = req.query;
+        const pipeline = [
+          {
+            $match: {
+              authorEmail: email,
+            },
+          },
+          {
+            $sort: {
+              createdAt: -1, // Oldest to newest
+            },
+          },
+          {
+            $limit: parseInt(limit),
+          },
+        ];
+
+        const posts = await postsCollection.aggregate(pipeline).toArray();
+        res.status(200).send(posts);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to fetch user posts" });
+      }
+    });
+
+    // ইউজারের সমস্ত পোস্ট ফেচ করার API
+
+    app.get("/posts/user/:email/all", async (req, res) => {
+      try {
+        const { email } = req.params;
+        // const { sort = "newest" } = req.query;
+
+        const pipeline = [
+          {
+            $match: {
+              authorEmail: email,
+            },
+          },
+
+          {
+            $sort: {
+              createdAt: -1, // new to old posts
+            },
+          },
+        ];
+
+        const posts = await postsCollection.aggregate(pipeline).toArray();
+        res.status(200).send(posts);
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Failed to fetch user posts" });
       }
     });
 
